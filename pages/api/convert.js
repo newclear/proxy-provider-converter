@@ -4,6 +4,7 @@ const axios = require("axios");
 module.exports = async (req, res) => {
   const url = req.query.url;
   const target = req.query.target;
+  const group = req.query.group;
   console.log(`query: ${JSON.stringify(req.query)}`);
   if (url === undefined) {
     res.status(400).send("Missing parameter: url");
@@ -41,8 +42,14 @@ module.exports = async (req, res) => {
     return;
   }
 
+  var allProxies = config.proxies;
+  if (group != undefined && config['proxy-groups'] != undefined) {
+    const proxyGroup = config['proxy-groups'].find((g) => g.name === group);
+    allProxies = allProxies.filter((p) => proxyGroup.proxies.indexOf(p.name) !== -1)
+  }
+
   if (target === "surge") {
-    const supportedProxies = config.proxies.filter((proxy) =>
+    const supportedProxies = allProxies.filter((proxy) =>
       ["ss", "vmess", "trojan"].includes(proxy.type)
     );
     const surgeProxies = supportedProxies.map((proxy) => {
@@ -114,7 +121,7 @@ module.exports = async (req, res) => {
     const proxies = surgeProxies.filter((p) => p !== undefined);
     res.status(200).send(proxies.join("\n"));
   } else {
-    const response = YAML.stringify({ proxies: config.proxies });
+    const response = YAML.stringify({ proxies: allProxies });
     res.status(200).send(response);
   }
 };
