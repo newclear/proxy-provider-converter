@@ -5,6 +5,7 @@ module.exports = async (req, res) => {
   const url = req.query.url;
   const target = req.query.target;
   const group = req.query.group;
+  const pattern = req.query.pattern;
   console.log(`query: ${JSON.stringify(req.query)}`);
   if (url === undefined) {
     res.status(400).send("Missing parameter: url");
@@ -46,6 +47,10 @@ module.exports = async (req, res) => {
   if (group != undefined && config['proxy-groups'] != undefined) {
     const proxyGroup = config['proxy-groups'].find((g) => g.name === group);
     allProxies = allProxies.filter((p) => proxyGroup.proxies.indexOf(p.name) !== -1)
+  }
+  if (pattern != undefined) {
+    const regex = new RegExp(pattern);
+    allProxies = allProxies.filter((p) => regex.test(p.name))
   }
 
   if (target === "surge") {
