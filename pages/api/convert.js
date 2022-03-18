@@ -125,6 +125,75 @@ module.exports = async (req, res) => {
     });
     const proxies = surgeProxies.filter((p) => p !== undefined);
     res.status(200).send(proxies.join("\n"));
+  } else if (target === "v2ray") {
+    const tagPrefix = req.query.prefix || '';
+    const supportedProxies = allProxies.filter((proxy) =>
+      ["vmess", "trojan"].includes(proxy.type)
+    );
+    const outbounds = supportedProxies.map((proxy) => {
+      console.log(proxy.server);
+      const outbound = {
+        tag: tagPrefix + proxy.name,
+        protocol: proxy.type
+      }
+      const common = `${proxy.name} = ${proxy.type}, ${proxy.server}, ${proxy.port}`;
+      if (proxy.type === "vmess") {
+        outbound.settings = {
+          vnext: [{
+            address: proxy.server,
+            port: proxy.port,
+            users: [{
+              id: proxy.uuid,
+              alterId: proxy.alterId,
+              security: proxy.cipher,
+              level: 0
+            }]
+          }]
+        }
+        outbound.streamSettings = {}
+        if (proxy.network == 'ws') {
+          outbound.streamSettings.network = 'ws'
+          outbound.streamSettings.wsSettings = {
+            path: proxy['ws-opts'].path,
+            headers: proxy['ws-opts'].headers
+          }
+        }
+        if (proxy.tls) {
+          outbound.streamSettings.security = 'tls'
+          outbound.streamSettings.tlsSettings = {
+            serverName: proxy.servername
+          }
+        }
+        return outbound;
+      } else if (proxy.type === "trojan") {
+        outbound.settings = {
+          servers: [{
+            address: proxy.server,
+            port: proxy.port,
+            password: proxy.password,
+            email: `${proxy.name}@${proxy.server}`,
+            level: 0
+          }]
+        }
+        outbound.streamSettings = {
+          security: 'tls',
+          tlsSettings: {
+            serverName: proxy.sni
+          }
+        }
+        return outbound;
+      }
+    });
+    outbounds.push({
+      tag: 'direct',
+      protocol: 'freedom',
+    })
+    outbounds.push({
+      tag: 'reject',
+      protocol: 'blackhole',
+    })
+    const response = JSON.stringify({ outbounds: outbounds }, null, ' ');
+    res.status(200).send(response);
   } else {
     const response = YAML.stringify({ proxies: allProxies });
     res.status(200).send(response);
